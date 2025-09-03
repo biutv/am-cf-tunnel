@@ -1,0 +1,42 @@
+name: Upstream Sync
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 每天执行一次
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync_latest_from_upstream:
+    name: Sync latest commits from upstream repo
+    runs-on: ubuntu-latest
+    if: ${{ github.event.repository.fork }} # 仅在当前仓库是Fork时运行
+
+    steps:
+      # 步骤1: 检出当前仓库
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+
+      # 步骤2: 执行同步操作
+      - name: Sync upstream changes
+        id: sync
+        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4
+        with:
+          upstream_sync_repo: amclubs/am-cf-tunnel # 上游仓库修改为amclubs/am-cf-tunnel
+          upstream_sync_branch: main # 上游仓库的目标分支
+          target_sync_branch: main # 本地仓库的目标分支
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }} # GitHub自动生成的令牌
+
+          # 设置为true可进行测试，不实际执行同步操作
+          test_mode: false
+
+      # 同步失败时的提示
+      - name: Sync check
+        if: failure()
+        run: |
+          echo "[Error] 由于上游仓库的 workflow 文件变更，导致 GitHub 自动暂停了本次自动更新，你需要手动 Sync Fork 一次，详细教程请查看项目README.md "
+          echo "[Error] Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork. Please refer to the project README.md for instructions. "
+          exit 1
+    
